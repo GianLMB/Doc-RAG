@@ -1,0 +1,62 @@
+# Build system config
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Project metadata
+[project]
+name = "doc-rag"
+version = "0.0.1"
+description = "Retrieve and interact with software documentation using local LLMs and RAG."
+readme = "README.md"
+requires-python = ">=3.9"
+
+authors = [
+    {name = "Gianluca Lombardi", email = "gianluca.lombardi.fr@gmail.com"},
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+# Main dependencies
+dependencies = [
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "chromadb>=0.4.0",
+    "ollama>=0.1.0",
+    "click>=8.1.0",
+    "gradio>=4.0.0",
+    "markdownify>=0.11.0",
+    "python-dotenv>=1.0.0",
+    "pypdf>=3.11.0",
+    "sentence-transformers>=2.2.0",
+]
+
+# Development dependencies
+[project.optional-dependencies]
+dev = [
+    "deptry>=0.23.0",
+    "pytest",
+    "ruff>=0.11.5",
+]
+
+[project.scripts]
+doc-rag = "doc_rag.cli:cli"
+doc-rag-ui = "doc_rag.ui:main"
+
+# Ruff config
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "I",   # isort
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+    "RUF", # Ruff-specific rules
+    "C4",  # flake8-comprehensions
+]
