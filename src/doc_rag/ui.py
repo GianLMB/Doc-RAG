@@ -8,7 +8,7 @@ from .retriever import RAGRetriever
 from .scraper import DocumentationScraper
 
 load_dotenv(override=True)
-from .utils import get_defaults, stream_to_gradio
+from .utils import get_defaults, list_chromadb_collections, stream_to_gradio
 
 default_inputs = get_defaults()
 
@@ -45,10 +45,13 @@ class DocRAGUI:
         except Exception as e:
             yield f"❌ Error: {e!s}"
 
-    @stream_to_gradio(
-        level=default_inputs["log_level"],
-        logger_names=["RAGRetriever"],
-    )
+    def list_collections(self, db_path):
+        collections = list_chromadb_collections(db_path)
+        message = "Available Collections:\n"
+        for col in collections:
+            message += f"- {col}\n"
+        yield message
+
     def query_documentation(
         self,
         question,
@@ -61,24 +64,33 @@ class DocRAGUI:
     ):
         """Query the documentation."""
         try:
-            if (
-                self.retriever is None
-                or self.retriever.model != model_name
-                or self.retriever.num_results != int(n_results)
-            ):
+            if self.retriever is None or self.retriever.model != model_name:
+                # Show loading message
+                history.append((question, "🔄 Loading model..."))
+                yield history, history
+
                 self.retriever = RAGRetriever(
                     db_path=db_path,
                     collection_name=collection_name,
                     model=model_name,
                     embedder_name=embedder_name,
-                    num_results=int(n_results),
                 )
 
-            history.append((question, ""))
+            # else:
+            # Update to show retrieval in progress
+            history[-1] = (question, "🔍 Retrieving context...")
+            yield history, history
+
+            # else:
+            #     history.append((question, ""))
+
             full_answer = ""
 
             # stream the response
-            for chunk in self.retriever.chat(question):
+            for chunk in self.retriever.chat(
+                question,
+                num_results=int(n_results),  # , conversation_history=history
+            ):
                 full_answer += chunk
                 history[-1] = (question, full_answer)  # update last message
                 yield history, history
@@ -86,7 +98,7 @@ class DocRAGUI:
             # append sources at the end
             response = full_answer + "\n\n**Sources:**\n"
             for i, source in enumerate(self.retriever.context[:3], 1):
-                response += f"{i}. [{source['metadata']['title']}]({source['metadata']['url']})\n"
+                response += f"{i}. [{source[0]}]({source[1]})\n"
 
             history[-1] = (question, response)
             yield history, history
@@ -109,7 +121,7 @@ class DocRAGUI:
                         url_input = gr.Textbox(
                             label="Documentation URL",
                             placeholder="https://docs.example.com",
-                            value="https://docs.python.org/3/library/os.html",
+                            # value="https://docs.python.org/3/library/os.html",
                         )
                         max_pages_input = gr.Slider(
                             minimum=10,
@@ -121,11 +133,17 @@ class DocRAGUI:
                         db_name = gr.Textbox(
                             label="Database Path", value=self.default_db_path
                         )
-                        collection = gr.Textbox(label="Collection Name", value="docs")
+                        collection = gr.Textbox(
+                            label="Collection Name", placeholder="docs"
+                        )
                         embedder_name = gr.Textbox(
                             label="Embedder Model", value=self.default_embedder_name
                         )
-                        index_btn = gr.Button("🚀 Start Indexing", variant="primary")
+                        with gr.Row():
+                            index_btn = gr.Button(
+                                "🚀 Start Indexing", variant="primary"
+                            )
+                            list_btn = gr.Button("📋 List Collections")
 
                     with gr.Column():
                         index_output = gr.Textbox(
@@ -141,6 +159,12 @@ class DocRAGUI:
                         collection,
                         embedder_name,
                     ],
+                    outputs=index_output,
+                )
+
+                list_btn.click(
+                    fn=self.list_collections,
+                    inputs=[db_name],
                     outputs=index_output,
                 )
 
@@ -166,7 +190,7 @@ class DocRAGUI:
                             label="Database Path", value=self.default_db_path
                         )
                         collection_name = gr.Textbox(
-                            label="Collection Name", value="docs"
+                            label="Collection Name", placeholder="docs"
                         )
                         embedder_name = gr.Textbox(
                             label="Embedder Model", value=self.default_embedder_name
@@ -174,7 +198,7 @@ class DocRAGUI:
                         n_results = gr.Slider(
                             minimum=1,
                             maximum=10,
-                            value=5,
+                            value=3,
                             step=1,
                             label="Number of Context Chunks",
                         )

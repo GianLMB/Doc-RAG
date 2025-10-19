@@ -19,7 +19,7 @@ class DocumentationScraper:
         self.base_path = urlparse(base_url).path.rstrip("/")  # Get base path
         self.max_pages = max_pages
         self.visited_urls: set[str] = set()
-        self.queued_urls: set[str] = set()  # Track URLs we've already queued
+        self.queued_urls: set[str] = set()  # Track already queued URLs
         self.documents: list[dict[str, str]] = []
         self.domain = urlparse(base_url).netloc
         self.logger = setup_logger(self, level=log_level)

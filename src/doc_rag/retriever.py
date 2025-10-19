@@ -7,19 +7,6 @@ from sentence_transformers import SentenceTransformer
 
 from .utils import pull_ollama_model, setup_logger
 
-# COMPLETION_PROMPT = """Based on the following documentation excerpts, answer the question.
-# If the answer cannot be found in the documentation, say so.
-# Do not add any information that is not in the excerpts. Be concise and to the point.
-# If the question asks to implement code snippets, provide the code snippets only without any explanation.
-
-# Documentation:
-# {}
-
-# Question: {}
-
-# Answer:"""
-
-
 SYSTEM_PROMPT = """You are a helpful assistant that answers questions based on documentation.
 If the answer cannot be found in the documentation, say so.
 Do not add any information that is not in the documentation. Be concise and to the point.
@@ -37,25 +24,12 @@ class RAGRetriever:
         collection_name: str,
         model: str,
         embedder_name: str,
-        num_results: int = 5,
         log_level: int = logging.INFO,
     ):
-        # # Check if model is available
-        # available_models = ollama.list().get("models", [])
-        # available_models = (
-        #     [m["model"] for m in available_models] if available_models else []
-        # )
-        # if model not in available_models:
-        #     raise ValueError(
-        #         f"Model '{model}' not found. Available models: {available_models}.\nPlease download"
-        #         f" it using the Ollama app, or with `ollama pull {model}` in your terminal."
-        #     )
-
         self.db_path = db_path
         self.collection_name = collection_name
         self.model = model
         self.embedder_name = embedder_name
-        self.num_results = num_results
         self.logger = setup_logger(self, level=log_level)
 
         try:
@@ -74,7 +48,7 @@ class RAGRetriever:
         # set context to None
         self.context = None
 
-    def retrieve_context(self, query: str) -> list[dict]:
+    def retrieve_context(self, query: str, num_results: int = 5) -> list[dict]:
         """Retrieve relevant document chunks."""
 
         self.logger.info("Encoding query...")
@@ -82,7 +56,7 @@ class RAGRetriever:
 
         self.logger.info("Retrieving relevant documents...")
         results = self.collection.query(
-            query_embeddings=[query_embedding.tolist()], n_results=self.num_results
+            query_embeddings=[query_embedding.tolist()], n_results=num_results
         )
 
         self.logger.info("Generating contexts...")
@@ -100,34 +74,10 @@ class RAGRetriever:
 
         return contexts
 
-    # def generate_response(self, query: str) -> dict[str, any]:
-    #     """Generate response using RAG."""
-    #     # Retrieve relevant contexts
-    #     contexts = self.retrieve_context(query)
-
-    #     # Build prompt
-    #     context_text = "\n\n".join(
-    #         [
-    #             f"[Source: {ctx['metadata']['title']} - {ctx['metadata']['url']}]\n{ctx['content']}"
-    #             for ctx in contexts
-    #         ]
-    #     )
-
-    #     prompt = COMPLETION_PROMPT.format(context_text, query)
-
-    #     # Generate response with Ollama
-    #     print(f"Generating response with {self.model}...")
-    #     response = ollama.generate(model=self.model, prompt=prompt)
-
-    #     return {
-    #         "answer": response["response"],
-    #         "sources": contexts,
-    #         "model": self.model,
-    #     }
-
     def chat(
         self,
         query: str,
+        num_results: int = 5,
         conversation_history: list[dict] | None = None,
     ) -> Iterator[str]:
         """Chat with conversation history."""
@@ -135,8 +85,10 @@ class RAGRetriever:
             conversation_history = []
 
         # Retrieve context
-        contexts = self.retrieve_context(query)
-        self.context = contexts
+        contexts = self.retrieve_context(query, num_results=num_results)
+        self.context = list(
+            {(ctx["metadata"]["title"], ctx["metadata"]["url"]) for ctx in contexts}
+        )
         context_text = "\n\n".join([ctx["content"] for ctx in contexts])
 
         # Build messages
@@ -150,6 +102,7 @@ class RAGRetriever:
         messages.append({"role": "user", "content": query})
 
         # Generate response
+        self.logger.info("Generating response...")
         stream_response: ollama.ChatResponse = ollama.chat(
             model=self.model, messages=messages, stream=True
         )

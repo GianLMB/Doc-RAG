@@ -58,7 +58,6 @@ def stream_to_gradio(level: int = logging.INFO, logger_names: list[str] | None =
         level: Logging level to capture
         logger_names: List of logger names to capture, or None for root logger
                      Examples: ['DocumentationScraper', 'DocumentEmbedder']
-                              ['myapp.scraper', 'myapp.embedder']
     """
 
     def decorator(func):

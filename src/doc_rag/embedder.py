@@ -32,7 +32,7 @@ class DocumentEmbedder:
         self.embedding_model = SentenceTransformer(embedder_name)
 
     def chunk_text(
-        self, text: str, chunk_size: int = 500, overlap: int = 50
+        self, text: str, chunk_size: int = 300, overlap: int = 50
     ) -> list[str]:
         """Split text into overlapping chunks."""
         words = text.split()

@@ -61,7 +61,7 @@ def index(url, db_path, max_pages, collection, embedder_name):
 @click.option(
     "--embedder", default=default_inputs["embedder_name"], help="Embedder name"
 )
-@click.option("--num-results", default=5, help="Number of results to retrieve")
+@click.option("--num-results", default=3, help="Number of results to retrieve")
 def query(db_path, collection, model, embedder, num_results):
     """Interactive query interface."""
     retriever = RAGRetriever(
@@ -69,7 +69,6 @@ def query(db_path, collection, model, embedder, num_results):
         collection_name=collection,
         model=model,
         embedder_name=embedder,
-        num_results=num_results,
     )
 
     click.echo(f"RAG Query Interface (using {model})")
@@ -82,20 +81,14 @@ def query(db_path, collection, model, embedder, num_results):
             break
 
         full_answer = ""
-        stream_result = retriever.chat(question)
+        stream_result = retriever.chat(question, num_results=num_results)
         for chunk in stream_result:
-            print(
-                chunk, end="", flush=True
-            )  # Print chunk without newline, forcing immediate display
+            print(chunk, end="", flush=True)
             full_answer += chunk
 
-        # click.echo(f"\n{result['answer']}\n")
-        click.echo("Sources:")
-        # for i, source in enumerate(result["sources"][:3], 1):
+        click.echo("\n\nSources:")
         for i, source in enumerate(retriever.context[:3], 1):
-            click.echo(
-                f"  {i}. {source['metadata']['title']} - {source['metadata']['url']}"
-            )
+            click.echo(f"  {i}. {source[0]} - {source[1]}")
         click.echo()
 
 
